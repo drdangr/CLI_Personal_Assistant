@@ -17,25 +17,29 @@ REG = CommandRegistry()
 
 ### CommandRegistry: назначение и устройство. Подробный разбор.
 
-`CommandRegistry` — небольшой сервис-класс, который хранит все команды CLI и их краткие описания. Он обеспечивает регистрацию, поиск и выдачу подсказок, а также помогает другим частям программы узнать, какие команды доступны.
+`CommandRegistry` — небольшой сервис-класс, который хранит все команды CLI, их краткие описания и принадлежность к разделам. Он обеспечивает регистрацию, поиск и выдачу подсказок, а также помогает другим частям программы узнать, какие команды доступны.
 
-```19:63:commands.py
+```19:64:commands.py
 class CommandRegistry:
     """Реестр команд со строгим сопоставлением по имени."""
 
     def __init__(self) -> None:
         self._handlers: Dict[str, Handler] = {}
         self._help: Dict[str, str] = {}
+        self._sections: Dict[str, str] = {}
 ```
 
 - При создании (`__init__`) класс заводит два словаря:
   - `_handlers`: имя команды → функция-обработчик (`Handler`).
   - `_help`: имя команды → строка справки (короткое описание для `help`).
+  - `_sections`: имя команды → название раздела, в котором команда отображается при вызове `help`.
 
 #### register()
 
-```25:35:commands.py
-    def register(self, name: str, *, help: str = "") -> Callable[[Handler], Handler]:
+```25:36:commands.py
+    def register(
+        self, name: str, *, help: str = "", section: str | None = None
+    ) -> Callable[[Handler], Handler]:
         """Зарегистрировать команду."""
 
         def decorator(func: Handler) -> Handler:
@@ -44,6 +48,10 @@ class CommandRegistry:
                 raise RuntimeError(f"Duplicate command: {name}")
             self._handlers[key] = func
             self._help[key] = help.strip()
+            normalized_section = section.strip() if section else DEFAULT_SECTION
+            if normalized_section not in SECTION_ORDER[:-1]:
+                normalized_section = DEFAULT_SECTION
+            self._sections[key] = normalized_section
             return func
 
         return decorator
@@ -52,7 +60,8 @@ class CommandRegistry:
 - Метод возвращает декоратор, которым оборачивают функции-обработчики.
 - Приводит имя к нижнему регистру и обрезает пробелы — регистрация/поиск регистронезависимые.
 - Запрещает дубли имен: при повторном `register("add")` сразу выбрасывает `RuntimeError`.
-- Сохраняет обработчик и описание в словари, затем возвращает саму функцию (чтобы декоратор не менял поведение).
+- Сохраняет обработчик, описание и раздел в словари, затем возвращает саму функцию (чтобы декоратор не менял поведение).
+- Параметр `section` необязателен; если он не указан или не попадает в допустимый список (`SECTION_ORDER`), команда окажется в разделе «Прочее».
 
 #### resolve()
 
@@ -102,24 +111,39 @@ class CommandRegistry:
 
 #### help_text()
 
-```56:63:commands.py
+```56:80:commands.py
     def help_text(self) -> str:
         """Вернуть компактный текст справки."""
+        groups: Dict[str, List[str]] = {section: [] for section in SECTION_ORDER}
+        for cmd in self.all_commands():
+            section = self._sections.get(cmd, DEFAULT_SECTION)
+            groups.setdefault(section, []).append(cmd)
+
         lines = ["Доступные команды:"]
-        for k in self.all_commands():
-            h = self._help.get(k, "")
-            lines.append(f"  - {k}: {h}")
-        lines.append("\nДля деталей по конкретной команде используйте: help <command>")
+        for section in SECTION_ORDER:
+            cmds = groups.get(section, [])
+            if not cmds:
+                continue
+            lines.append("")
+            lines.append(f"{section}:")
+            for cmd in cmds:
+                desc = self._help.get(cmd, "")
+                lines.append(f"  - {cmd}: {desc}")
+
+        lines.append("")
+        lines.append("Для деталей по конкретной команде используйте: help <command>")
         return "\n".join(lines)
 ```
 
-- Формирует многострочный текст: верхняя строчка — заголовок, далее список `команда: описание`, и заключительная подсказка про `help <command>`.
-- Воспользуется `all_commands`, чтобы убедиться, что команды выведены последовательно и отсортированы.
+- Формирует многострочный текст, где команды выводятся блоками: «Телефонная книга», «Заметки», «Система» и «Прочее».
+- Секции идут в фиксированном порядке (`SECTION_ORDER`), но пустые блоки пропускаются.
+- Внутри блока перечисляются сами команды с описанием; финальная подсказка напоминает про `help <command>`.
+- В модуле объявлены константы `SECTION_PHONEBOOK`, `SECTION_NOTES`, `SECTION_SYSTEM`, `SECTION_ORDER` и `DEFAULT_SECTION`. Они задают человекочитаемые названия разделов и гарантируют, что команды без секции окажутся в последнем блоке — «Прочее».
 
 ### Жизненный цикл
 
 1. Где-то в `commands.py` объявляют глобальный `REG = CommandRegistry()`.
-2. Каждая команда оформлена функцией с декораторами `@REG.register("имя", help="...")`, опционально `@input_error`, `@mutating`.
+2. Каждая команда оформлена функцией с декораторами `@REG.register("имя", help="...", section="...")`, опционально `@input_error`, `@mutating`.
 3. CLI-парсер получает строку от пользователя, определяет имя команды, нормализует его и вызывает:
    - `REG.resolve(name)` → проверка.
    - `REG.handler(key)` → получение самой функции.
@@ -160,6 +184,7 @@ def mutating(func):
 @REG.register("add", ...)
 ...
 ```
+- Все обработчики в этом разделе регистрируются с `section=SECTION_PHONEBOOK`, поэтому в справке итоговый список попадает в блок «Телефонная книга».
 
 - `cmd_change`, `cmd_phone`, `cmd_all`, `cmd_add_birthday`, `cmd_show_birthday`, `cmd_birthdays` реализуют, соответственно, смену номера, просмотр телефонов, выгрузку всех контактов, работу с днями рождения и список грядущих праздников (по умолчанию 7 дней вперёд, с группировкой по смещениям Today/Tomorrow/…).
 
@@ -182,6 +207,7 @@ def mutating(func):
 @REG.register("add-note", ...)
 ...
 ```
+- Команды по заметкам получают `section=SECTION_NOTES`, и `help` выводит их под заголовком «Заметки».
 
 ### Системные команды
 
@@ -194,6 +220,7 @@ def mutating(func):
 @REG.register("hello", ...)
 ...
 ```
+- Системные команды используют `section=SECTION_SYSTEM`. Если какая-то новая команда не укажет раздел или задаст незнакомое значение, реестр отправит её в «Прочее» (это `DEFAULT_SECTION`).
 
 ### Итоговая схема работы
 

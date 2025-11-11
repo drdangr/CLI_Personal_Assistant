@@ -41,10 +41,17 @@ result = REG.help_text()
 
 ### Як додати нову команду?
 
+1. Оберіть розділ (`SECTION_PHONEBOOK`, `SECTION_NOTES`, `SECTION_SYSTEM` або `"Прочее"` для нетипових команд). Детальніше про групи команд — у `Docs/4_COMMANDS.md`.
+2. Додайте саму функцію в `commands.py` та зареєструйте її через `@REG.register`.
+
 ```python
 # У commands.py (і більше ніде!)
 
-@REG.register("new-cmd", help='Новая команда: new-cmd "arg1" arg2')
+@REG.register(
+    "new-cmd",
+    help='Новая команда: new-cmd "arg1" arg2',
+    section=SECTION_PHONEBOOK,  # оберіть відповідний розділ
+)
 @input_error
 @mutating  # Якщо команда змінює дані
 def cmd_new_cmd(args: List[str], storage: Storage) -> str:

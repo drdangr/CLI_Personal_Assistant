@@ -21,8 +21,11 @@ class CommandRegistry:
     def __init__(self) -> None:
         self._handlers: Dict[str, Handler] = {}
         self._help: Dict[str, str] = {}
+        self._sections: Dict[str, str] = {}
 
-    def register(self, name: str, *, help: str = "") -> Callable[[Handler], Handler]:
+    def register(
+        self, name: str, *, help: str = "", section: str | None = None
+    ) -> Callable[[Handler], Handler]:
         """Зарегистрировать команду."""
 
         def decorator(func: Handler) -> Handler:
@@ -31,6 +34,10 @@ class CommandRegistry:
                 raise RuntimeError(f"Duplicate command: {name}")
             self._handlers[key] = func
             self._help[key] = help.strip()
+            normalized_section = section.strip() if section else DEFAULT_SECTION
+            if normalized_section not in SECTION_ORDER[:-1]:
+                normalized_section = DEFAULT_SECTION
+            self._sections[key] = normalized_section
             return func
 
         return decorator
@@ -55,12 +62,32 @@ class CommandRegistry:
 
     def help_text(self) -> str:
         """Вернуть компактный текст справки."""
+        groups: Dict[str, List[str]] = {section: [] for section in SECTION_ORDER}
+        for cmd in self.all_commands():
+            section = self._sections.get(cmd, DEFAULT_SECTION)
+            groups.setdefault(section, []).append(cmd)
+
         lines = ["Доступные команды:"]
-        for k in self.all_commands():
-            h = self._help.get(k, "")
-            lines.append(f"  - {k}: {h}")
-        lines.append("\nДля деталей по конкретной команде используйте: help <command>")
+        for section in SECTION_ORDER:
+            cmds = groups.get(section, [])
+            if not cmds:
+                continue
+            lines.append("")
+            lines.append(f"{section}:")
+            for cmd in cmds:
+                desc = self._help.get(cmd, "")
+                lines.append(f"  - {cmd}: {desc}")
+
+        lines.append("")
+        lines.append("Для деталей по конкретной команде используйте: help <command>")
         return "\n".join(lines)
+
+
+SECTION_PHONEBOOK = "Телефонная книга"
+SECTION_NOTES = "Заметки"
+SECTION_SYSTEM = "Система"
+SECTION_ORDER = [SECTION_PHONEBOOK, SECTION_NOTES, SECTION_SYSTEM, "Прочее"]
+DEFAULT_SECTION = SECTION_ORDER[-1]
 
 
 REG = CommandRegistry()
@@ -149,7 +176,11 @@ def mutating(func: Handler) -> Handler:
 # ==============================
 
 
-@REG.register("add", help='Додати контакт або телефон: add "Name" [0123456789]')
+@REG.register(
+    "add",
+    help='Додати контакт або телефон: add "Name" [0123456789]',
+    section=SECTION_PHONEBOOK,
+)
 @input_error
 @mutating
 def cmd_add(args: List[str], storage: Storage) -> str:
@@ -178,7 +209,11 @@ def cmd_add(args: List[str], storage: Storage) -> str:
     return f"Phone added for {rec.name.value}."
 
 
-@REG.register("change", help='Змінити телефон: change "Name" old10 new10')
+@REG.register(
+    "change",
+    help='Змінити телефон: change "Name" old10 new10',
+    section=SECTION_PHONEBOOK,
+)
 @input_error
 @mutating
 def cmd_change(args: List[str], storage: Storage) -> str:
@@ -188,7 +223,11 @@ def cmd_change(args: List[str], storage: Storage) -> str:
     return f"Phone updated for {rec.name.value}."
 
 
-@REG.register("phone", help='Показать телефоны контакта: phone "Name"')
+@REG.register(
+    "phone",
+    help='Показать телефоны контакта: phone "Name"',
+    section=SECTION_PHONEBOOK,
+)
 @input_error
 def cmd_phone(args: List[str], storage: Storage) -> str:
     require_args(args, 1, 'Usage: phone "Name"')
@@ -199,7 +238,7 @@ def cmd_phone(args: List[str], storage: Storage) -> str:
     return f"{rec.name.value}: {numbers}"
 
 
-@REG.register("all", help="Показать все контакты: all")
+@REG.register("all", help="Показать все контакты: all", section=SECTION_PHONEBOOK)
 @input_error
 def cmd_all(args: List[str], storage: Storage) -> str:  # noqa: ARG001
     items = storage.contacts.all()
@@ -208,7 +247,11 @@ def cmd_all(args: List[str], storage: Storage) -> str:  # noqa: ARG001
     return "\n".join(str(r) for r in items)
 
 
-@REG.register("add-birthday", help='Додати ДР: add-birthday "Name" DD.MM.YYYY')
+@REG.register(
+    "add-birthday",
+    help='Додати ДР: add-birthday "Name" DD.MM.YYYY',
+    section=SECTION_PHONEBOOK,
+)
 @input_error
 @mutating
 def cmd_add_birthday(args: List[str], storage: Storage) -> str:
@@ -218,7 +261,11 @@ def cmd_add_birthday(args: List[str], storage: Storage) -> str:
     return f"Birthday set for {rec.name.value}."
 
 
-@REG.register("show-birthday", help='Показать ДР: show-birthday "Name"')
+@REG.register(
+    "show-birthday",
+    help='Показать ДР: show-birthday "Name"',
+    section=SECTION_PHONEBOOK,
+)
 @input_error
 def cmd_show_birthday(args: List[str], storage: Storage) -> str:
     require_args(args, 1, 'Usage: show-birthday "Name"')
@@ -228,7 +275,11 @@ def cmd_show_birthday(args: List[str], storage: Storage) -> str:
     return f"{rec.name.value}: {rec.birthday.value}"
 
 
-@REG.register("birthdays", help="Дні народження протягом тижня: birthdays")
+@REG.register(
+    "birthdays",
+    help="Дні народження протягом тижня: birthdays",
+    section=SECTION_PHONEBOOK,
+)
 @input_error
 def cmd_birthdays(args: List[str], storage: Storage) -> str:  # noqa: ARG001
     days = 7
@@ -249,7 +300,11 @@ def cmd_birthdays(args: List[str], storage: Storage) -> str:  # noqa: ARG001
     return "\n".join(lines)
 
 
-@REG.register("add-email", help='Добавить email: add-email "Name" example@mail.com')
+@REG.register(
+    "add-email",
+    help='Добавить email: add-email "Name" example@mail.com',
+    section=SECTION_PHONEBOOK,
+)
 @input_error
 @mutating
 def cmd_add_email(args: List[str], storage: Storage) -> str:
@@ -260,7 +315,9 @@ def cmd_add_email(args: List[str], storage: Storage) -> str:
 
 
 @REG.register(
-    "remove-email", help='Удалить email: remove-email "Name" example@mail.com'
+    "remove-email",
+    help='Удалить email: remove-email "Name" example@mail.com',
+    section=SECTION_PHONEBOOK,
 )
 @input_error
 @mutating
@@ -272,7 +329,11 @@ def cmd_remove_email(args: List[str], storage: Storage) -> str:
     return "Email not found."
 
 
-@REG.register("set-address", help='Установить адрес: set-address "Name" "Kyiv, ..."')
+@REG.register(
+    "set-address",
+    help='Установить адрес: set-address "Name" "Kyiv, ..."',
+    section=SECTION_PHONEBOOK,
+)
 @input_error
 @mutating
 def cmd_set_address(args: List[str], storage: Storage) -> str:
@@ -282,7 +343,9 @@ def cmd_set_address(args: List[str], storage: Storage) -> str:
     return f"Address set for {rec.name.value}."
 
 
-@REG.register("find", help="Поиск контактов: find query")
+@REG.register(
+    "find", help="Поиск контактов: find query", section=SECTION_PHONEBOOK
+)
 @input_error
 def cmd_find(args: List[str], storage: Storage) -> str:
     require_args(args, 1, "Usage: find query")
@@ -290,7 +353,11 @@ def cmd_find(args: List[str], storage: Storage) -> str:
     return "\n".join(str(r) for r in res) if res else "No results."
 
 
-@REG.register("delete-contact", help='Удалить контакт: delete-contact "Name"')
+@REG.register(
+    "delete-contact",
+    help='Удалить контакт: delete-contact "Name"',
+    section=SECTION_PHONEBOOK,
+)
 @input_error
 @mutating
 def cmd_delete_contact(args: List[str], storage: Storage) -> str:
@@ -305,7 +372,11 @@ def cmd_delete_contact(args: List[str], storage: Storage) -> str:
 # ==============================
 
 
-@REG.register("add-note", help='Добавить заметку: add-note "Title" текст...')
+@REG.register(
+    "add-note",
+    help='Добавить заметку: add-note "Title" текст...',
+    section=SECTION_NOTES,
+)
 @input_error
 @mutating
 def cmd_add_note(args: List[str], storage: Storage) -> str:
@@ -318,7 +389,11 @@ def cmd_add_note(args: List[str], storage: Storage) -> str:
     return f"Note added: {args[0]}"
 
 
-@REG.register("list-notes", help="Показать заметки: list-notes [title|created]")
+@REG.register(
+    "list-notes",
+    help="Показать заметки: list-notes [title|created]",
+    section=SECTION_NOTES,
+)
 @input_error
 def cmd_list_notes(args: List[str], storage: Storage) -> str:
     sort_by = args[0] if args else "title"
@@ -332,7 +407,11 @@ def cmd_list_notes(args: List[str], storage: Storage) -> str:
     return "\n\n---\n\n".join(out)
 
 
-@REG.register("find-note", help="Поиск заметок по тексту: find-note query")
+@REG.register(
+    "find-note",
+    help="Поиск заметок по тексту: find-note query",
+    section=SECTION_NOTES,
+)
 @input_error
 def cmd_find_note(args: List[str], storage: Storage) -> str:
     require_args(args, 1, "Usage: find-note query")
@@ -344,7 +423,11 @@ def cmd_find_note(args: List[str], storage: Storage) -> str:
     )
 
 
-@REG.register("find-tag", help="Поиск заметок по тегу: find-tag tag")
+@REG.register(
+    "find-tag",
+    help="Поиск заметок по тегу: find-tag tag",
+    section=SECTION_NOTES,
+)
 @input_error
 def cmd_find_tag(args: List[str], storage: Storage) -> str:
     require_args(args, 1, "Usage: find-tag tag")
@@ -359,7 +442,9 @@ def cmd_find_tag(args: List[str], storage: Storage) -> str:
 
 
 @REG.register(
-    "edit-note", help='Редактировать заметку: edit-note "Title" новий_текст...'
+    "edit-note",
+    help='Редактировать заметку: edit-note "Title" новий_текст...',
+    section=SECTION_NOTES,
 )
 @input_error
 @mutating
@@ -373,7 +458,11 @@ def cmd_edit_note(args: List[str], storage: Storage) -> str:
     return f"Note updated: {args[0]}"
 
 
-@REG.register("tag-add", help='Добавить теги: tag-add "Title" tag1 tag2 ...')
+@REG.register(
+    "tag-add",
+    help='Добавить теги: tag-add "Title" tag1 tag2 ...',
+    section=SECTION_NOTES,
+)
 @input_error
 @mutating
 def cmd_tag_add(args: List[str], storage: Storage) -> str:
@@ -383,7 +472,11 @@ def cmd_tag_add(args: List[str], storage: Storage) -> str:
     return f"Tags added to '{args[0]}': {', '.join(sorted(args[1:]))}"
 
 
-@REG.register("tag-remove", help='Удалить тег: tag-remove "Title" tag')
+@REG.register(
+    "tag-remove",
+    help='Удалить тег: tag-remove "Title" tag',
+    section=SECTION_NOTES,
+)
 @input_error
 @mutating
 def cmd_tag_remove(args: List[str], storage: Storage) -> str:
@@ -394,7 +487,11 @@ def cmd_tag_remove(args: List[str], storage: Storage) -> str:
     return "Tag not found."
 
 
-@REG.register("delete-note", help='Удалить заметку: delete-note "Title"')
+@REG.register(
+    "delete-note",
+    help='Удалить заметку: delete-note "Title"',
+    section=SECTION_NOTES,
+)
 @input_error
 @mutating
 def cmd_delete_note(args: List[str], storage: Storage) -> str:
@@ -409,13 +506,13 @@ def cmd_delete_note(args: List[str], storage: Storage) -> str:
 # ==============================
 
 
-@REG.register("hello", help="Привітання від бота")
+@REG.register("hello", help="Привітання від бота", section=SECTION_SYSTEM)
 @input_error
 def cmd_hello(args: List[str], storage: Storage) -> str:  # noqa: ARG001
     return "Привіт! Чим можу допомогти?"
 
 
-@REG.register("help", help="Показать справку")
+@REG.register("help", help="Показать справку", section=SECTION_SYSTEM)
 @input_error
 def cmd_help(args: List[str], storage: Storage) -> str:  # noqa: ARG001
     if args:
@@ -428,14 +525,14 @@ def cmd_help(args: List[str], storage: Storage) -> str:  # noqa: ARG001
     return REG.help_text()
 
 
-@REG.register("close", help="Закрыть программу")
-@REG.register("exit", help="Закрыть программу")
+@REG.register("close", help="Закрыть программу", section=SECTION_SYSTEM)
+@REG.register("exit", help="Закрыть программу", section=SECTION_SYSTEM)
 @input_error
 def cmd_exit(args: List[str], storage: Storage) -> str:  # noqa: ARG001
     return "__EXIT__"
 
 
-@REG.register("version", help="Показать версию")
+@REG.register("version", help="Показать версию", section=SECTION_SYSTEM)
 @input_error
 def cmd_version(args: List[str], storage: Storage) -> str:  # noqa: ARG001
     from config import APP_NAME, APP_VERSION
