@@ -11,6 +11,7 @@ from models import Address, Birthday, Email, Name, Note, Phone, Record
 from storage import Storage, save_storage
 
 
+# Тип для обработчика команды: функция принимает аргументы и хранилище, возвращает строку
 Handler = Callable[[List[str], Storage], str]
 
 
@@ -74,7 +75,25 @@ def require_args(
 
 
 def input_error(func: Handler) -> Handler:
-    """Декоратор для обработки ошибок."""
+    """
+    Декоратор для обработки ошибок и вывода дружных сообщений.
+
+    Перехватывает исключения и возвращает понятные сообщения вместо краша:
+    - KeyError → "Not found: ..." (контакт/заметка не найдены)
+    - ValueError → "Value error: ..." (неправильное значение, например, поле)
+    - IndexError → "Not enough arguments" (мало аргументов)
+    - Exception → "Error: ..." (прочие ошибки)
+
+    Пример:
+        @input_error
+        def cmd_example(args, storage):
+            if not args:
+                raise IndexError("Usage: cmd arg1 arg2")
+            if args[0] == "invalid":
+                raise ValueError("Invalid argument")
+            rec = storage.contacts.get_record(args[0])  # может выбросить KeyError
+            return "Success"
+    """
 
     @functools.wraps(func)
     def inner(args: List[str], storage: Storage) -> str:
@@ -93,7 +112,27 @@ def input_error(func: Handler) -> Handler:
 
 
 def mutating(func: Handler) -> Handler:
-    """Декоратор для команд, которые меняют состояние (авто-сохранение)."""
+    """
+    Декоратор для команд, которые меняют данные (автоматическое сохранение).
+
+    Автоматически вызывает save_storage() после успешного выполнения команды.
+    НЕ сохраняет если:
+    - функция вернула ошибку (начинается с "Error")
+    - функция вернула сигнал выхода ("__EXIT__")
+
+    Пример:
+        @mutating
+        def cmd_add_contact(args, storage):
+            rec = Record(Name(args[0]))
+            storage.contacts.add_record(rec)
+            return "Contact added"
+            # Автоматически вызовет save_storage(storage)
+
+        @mutating
+        def cmd_invalid(args, storage):
+            raise ValueError("Bad input")
+            # Не сохранит, потому что @input_error вернёт "Value error: ..."
+    """
 
     @functools.wraps(func)
     def inner(args: List[str], storage: Storage) -> str:

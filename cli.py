@@ -14,13 +14,24 @@ from storage import STORAGE_FILE, load_storage
 
 def parse_input(line: str) -> Tuple[str, List[str]]:
     """
-    Разбить рядок на команду и аргументы.
-    Поддерживает кавычки для аргументов с пробелами.
+    Разбить команду на имя и аргументы, поддерживая кавычки.
+
+    Примеры:
+        'add "John Doe" 1234567890'
+        → cmd='add', args=['John Doe', '1234567890']
+
+        'add-note "My Note" Some text here'
+        → cmd='add-note', args=['My Note', 'Some', 'text', 'here']
+
+    shlex.split() умеет парсить кавычки как в shell:
+    - "текст с пробелами" → один аргумент
+    - текст без кавычек → разбивается по пробелам
     """
     try:
+        # shlex.split() обрабатывает кавычки как в Unix shell
         parts = shlex.split(line, posix=True)
     except ValueError:
-        # Ошибка при разборе кавычек — обработаем как список слов
+        # Если кавычки неправильные, просто разбиваем по пробелам
         parts = line.split()
 
     if not parts:

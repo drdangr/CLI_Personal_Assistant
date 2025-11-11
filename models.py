@@ -107,7 +107,22 @@ class Birthday(Field):
 
 
 class Record:
-    """Один контакт с полями и методами управления."""
+    """
+    Один контакт с полями и методами управления.
+
+    Пример:
+        rec = Record(Name("John Doe"))
+        rec.add_phone(Phone("1234567890"))
+        rec.add_email(Email("john@example.com"))
+        rec.set_birthday(Birthday("15.03.1990"))
+        rec.set_address(Address("Kyiv, Ukraine"))
+
+        print(rec)
+        # Output: Name: John Doe | Phones: 1234567890 | Emails: john@example.com |
+        #         Address: Kyiv, Ukraine | Birthday: 15.03.1990
+
+        print(rec.days_to_birthday())  # количество дней до ДР
+    """
 
     def __init__(self, name: Name) -> None:
         self.name: Name = name
@@ -163,12 +178,26 @@ class Record:
         self.birthday = bday
 
     def days_to_birthday(self, today: Optional[date] = None) -> Optional[int]:
-        """Количество дней до ближайшего дня рождения."""
+        """
+        Количество дней до ближайшего дня рождения.
+
+        Алгоритм:
+        1. Если дня рождения нет → вернуть None
+        2. Построить дату дня рождения в этом году
+        3. Если эта дата уже прошла → взять следующий год
+        4. Вернуть разницу в днях
+
+        Примеры:
+        - Сегодня 10.11, день рождения 15.11 → 5 дней
+        - Сегодня 20.11, день рождения 15.11 → 356 дней (до 15.11 следующего года)
+        """
         if not self.birthday:
             return None
         today = today or date.today()
         born = self.birthday.as_date()
+        # Построить дату дня рождения в этом году
         this_year = date(today.year, born.month, born.day)
+        # Если этот год уже прошёл, берём следующий год
         next_bd = (
             this_year
             if this_year >= today
@@ -177,12 +206,22 @@ class Record:
         return (next_bd - today).days
 
     def get_next_birthday(self, today: Optional[date] = None) -> Optional[date]:
-        """Получить дату следующего дня рождения."""
+        """
+        Получить дату следующего дня рождения.
+
+        Аналогично days_to_birthday(), но возвращает саму дату вместо количества дней.
+
+        Примеры:
+        - Сегодня 10.11, день рождения 15.11 → date(2025, 11, 15)
+        - Сегодня 20.11, день рождения 15.11 → date(2026, 11, 15)
+        """
         if not self.birthday:
             return None
         today = today or date.today()
         born = self.birthday.as_date()
+        # Построить дату дня рождения в этом году
         this_year = date(today.year, born.month, born.day)
+        # Если этот год уже прошёл, берём следующий год
         return (
             this_year
             if this_year >= today
