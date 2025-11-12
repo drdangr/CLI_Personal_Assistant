@@ -83,9 +83,9 @@ class CommandRegistry:
         return "\n".join(lines)
 
 
-SECTION_PHONEBOOK = "Телефонная книга"
-SECTION_NOTES = "Заметки"
-SECTION_SYSTEM = "Система"
+SECTION_PHONEBOOK = "Phonebook"
+SECTION_NOTES = "Notes"
+SECTION_SYSTEM = "System"
 SECTION_ORDER = [SECTION_PHONEBOOK, SECTION_NOTES, SECTION_SYSTEM, "Прочее"]
 DEFAULT_SECTION = SECTION_ORDER[-1]
 
