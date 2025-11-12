@@ -70,8 +70,9 @@ PHONE_REGEX = r"^\d{10}$"
 
 Знайдете приклад за 30 секунд:
 ```python
-@REG.register("new-cmd", help='...', section=SECTION_PHONEBOOK)
+@REG.register("new-cmd", help='Usage: new-cmd arg', section=SECTION_PHONEBOOK, min_args=1)
 # або оберіть SECTION_NOTES / SECTION_SYSTEM / "Прочее"
+# min_args - мінімальна кількість аргументів (валідується автоматично)
 @input_error
 @mutating
 def cmd_new_cmd(args, storage):

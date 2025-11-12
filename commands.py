@@ -22,9 +22,10 @@ class CommandRegistry:
         self._handlers: Dict[str, Handler] = {}
         self._help: Dict[str, str] = {}
         self._sections: Dict[str, str] = {}
+        self._min_args: Dict[str, int] = {}
 
     def register(
-        self, name: str, *, help: str = "", section: str | None = None
+        self, name: str, *, help: str = "", section: str | None = None, min_args: int = 0
     ) -> Callable[[Handler], Handler]:
         """Зареєструвати команду."""
 
@@ -34,6 +35,7 @@ class CommandRegistry:
                 raise RuntimeError(f"Duplicate command: {name}")
             self._handlers[key] = func
             self._help[key] = help.strip()
+            self._min_args[key] = min_args
             normalized_section = section.strip() if section else DEFAULT_SECTION
             if normalized_section not in SECTION_ORDER[:-1]:
                 normalized_section = DEFAULT_SECTION
@@ -50,6 +52,18 @@ class CommandRegistry:
     def handler(self, key: str) -> Handler:
         """Отримати обробник за ключем."""
         return self._handlers[key]
+
+    def validate_args(self, cmd_name: str, args: List[str]) -> None:
+        """Перевірити кількість аргументів для команди."""
+        key = cmd_name.strip().lower()
+        min_required = self._min_args.get(key, 0)
+        
+        if len(args) < min_required:
+            help_text = self._help.get(key, "")
+            if help_text:
+                raise IndexError(f"Not enough arguments. {help_text}")
+            else:
+                raise IndexError(f"Command '{cmd_name}' requires at least {min_required} argument(s)")
 
     def all_commands(self) -> List[str]:
         """Отримати список всіх команд."""
@@ -91,14 +105,6 @@ DEFAULT_SECTION = SECTION_ORDER[-1]
 
 
 REG = CommandRegistry()
-
-
-def require_args(
-    args: List[str], count: int, usage: str = "Not enough arguments"
-) -> None:
-    """Перевірити, що є потрібна кількість аргументів."""
-    if len(args) < count:
-        raise IndexError(usage)
 
 
 def input_error(func: Handler) -> Handler:
@@ -178,13 +184,13 @@ def mutating(func: Handler) -> Handler:
 
 @REG.register(
     "add",
-    help='Add contact or phone: add "Name" [0123456789]',
+    help='Usage: add "Name" [0123456789]',
     section=SECTION_PHONEBOOK,
+    min_args=1,
 )
 @input_error
 @mutating
 def cmd_add(args: List[str], storage: Storage) -> str:
-    require_args(args, 1, 'Usage: add "Name" [0123456789]')
     name_arg = args[0]
     phone = Phone(args[1]) if len(args) > 1 else None
     try:
@@ -211,13 +217,13 @@ def cmd_add(args: List[str], storage: Storage) -> str:
 
 @REG.register(
     "change",
-    help='Change phone: change "Name" old10 new10',
+    help='Usage: change "Name" old10 new10',
     section=SECTION_PHONEBOOK,
+    min_args=3,
 )
 @input_error
 @mutating
 def cmd_change(args: List[str], storage: Storage) -> str:
-    require_args(args, 3, 'Usage: change "Name" old10 new10')
     rec = storage.contacts.get_record(args[0])
     rec.edit_phone(args[1], args[2])
     return f"Phone updated for {rec.name.value}."
@@ -225,12 +231,12 @@ def cmd_change(args: List[str], storage: Storage) -> str:
 
 @REG.register(
     "phone",
-    help='Show contact phones: phone "Name"',
+    help='Usage: phone "Name"',
     section=SECTION_PHONEBOOK,
+    min_args=1,
 )
 @input_error
 def cmd_phone(args: List[str], storage: Storage) -> str:
-    require_args(args, 1, 'Usage: phone "Name"')
     rec = storage.contacts.get_record(args[0])
     if not rec.phones:
         return f"No phone numbers for {rec.name.value}."
@@ -238,7 +244,11 @@ def cmd_phone(args: List[str], storage: Storage) -> str:
     return f"{rec.name.value}: {numbers}"
 
 
-@REG.register("all", help="Show all contacts: all", section=SECTION_PHONEBOOK)
+@REG.register(
+    "all", 
+    help="Show all contacts", 
+    section=SECTION_PHONEBOOK
+)
 @input_error
 def cmd_all(args: List[str], storage: Storage) -> str:  # noqa: ARG001
     items = storage.contacts.all()
@@ -249,13 +259,13 @@ def cmd_all(args: List[str], storage: Storage) -> str:  # noqa: ARG001
 
 @REG.register(
     "add-birthday",
-    help='Add birthday: add-birthday "Name" DD.MM.YYYY',
+    help='Usage: add-birthday "Name" DD.MM.YYYY',
     section=SECTION_PHONEBOOK,
+    min_args=2,
 )
 @input_error
 @mutating
 def cmd_add_birthday(args: List[str], storage: Storage) -> str:
-    require_args(args, 2, 'Usage: add-birthday "Name" DD.MM.YYYY')
     rec = storage.contacts.get_record(args[0])
     rec.set_birthday(Birthday(args[1]))
     return f"Birthday set for {rec.name.value}."
@@ -263,12 +273,12 @@ def cmd_add_birthday(args: List[str], storage: Storage) -> str:
 
 @REG.register(
     "show-birthday",
-    help='Show birthday: show-birthday "Name"',
+    help='Usage: show-birthday "Name"',
     section=SECTION_PHONEBOOK,
+    min_args=1,
 )
 @input_error
 def cmd_show_birthday(args: List[str], storage: Storage) -> str:
-    require_args(args, 1, 'Usage: show-birthday "Name"')
     rec = storage.contacts.get_record(args[0])
     if not rec.birthday:
         return f"No birthday for {rec.name.value}."
@@ -277,7 +287,7 @@ def cmd_show_birthday(args: List[str], storage: Storage) -> str:
 
 @REG.register(
     "birthdays",
-    help="Birthdays within week: birthdays",
+    help="Birthdays within week",
     section=SECTION_PHONEBOOK,
 )
 @input_error
@@ -302,13 +312,13 @@ def cmd_birthdays(args: List[str], storage: Storage) -> str:  # noqa: ARG001
 
 @REG.register(
     "add-email",
-    help='Add email: add-email "Name" example@mail.com',
+    help='Usage: add-email "Name" example@mail.com',
     section=SECTION_PHONEBOOK,
+    min_args=2,
 )
 @input_error
 @mutating
 def cmd_add_email(args: List[str], storage: Storage) -> str:
-    require_args(args, 2, 'Usage: add-email "Name" example@mail.com')
     rec = storage.contacts.get_record(args[0])
     rec.add_email(Email(args[1]))
     return f"Email added for {rec.name.value}."
@@ -316,13 +326,13 @@ def cmd_add_email(args: List[str], storage: Storage) -> str:
 
 @REG.register(
     "remove-email",
-    help='Remove email: remove-email "Name" example@mail.com',
+    help='Usage: remove-email "Name" example@mail.com',
     section=SECTION_PHONEBOOK,
+    min_args=2,
 )
 @input_error
 @mutating
 def cmd_remove_email(args: List[str], storage: Storage) -> str:
-    require_args(args, 2, 'Usage: remove-email "Name" example@mail.com')
     rec = storage.contacts.get_record(args[0])
     if rec.remove_email(args[1]):
         return f"Email removed for {rec.name.value}."
@@ -330,14 +340,14 @@ def cmd_remove_email(args: List[str], storage: Storage) -> str:
 
 
 @REG.register(
-    "set-address",
-    help='Set address: set-address "Name" "Kyiv, ..."',
+    "add-address",
+    help='Usage: set-address "Name" "Kyiv, ..."',
     section=SECTION_PHONEBOOK,
+    min_args=2,
 )
 @input_error
 @mutating
 def cmd_set_address(args: List[str], storage: Storage) -> str:
-    require_args(args, 2, 'Usage: set-address "Name" "Kyiv, ..."')
     rec = storage.contacts.get_record(args[0])
     # приєдную всі інші аргументи адреси, наприклад "Kyiv, Khreshchatyk 1"
     address_text = " ".join(args[1:]).strip()
@@ -348,24 +358,53 @@ def cmd_set_address(args: List[str], storage: Storage) -> str:
 
 
 @REG.register(
-    "find", help="Find contacts: find query", section=SECTION_PHONEBOOK
+    "remove-phone",
+    help='Usage: remove-phone "Name" 0123456789',
+    section=SECTION_PHONEBOOK,
+    min_args=2,
+)
+@input_error
+@mutating
+def cmd_remove_phone(args: List[str], storage: Storage) -> str:
+    rec = storage.contacts.get_record(args[0])
+    if rec.remove_phone(args[1]):
+        return f"Phone removed for {rec.name.value}."
+    return "Phone not found."
+
+
+@REG.register(
+    "remove-address",
+    help='Usage: remove-address "Name"',
+    section=SECTION_PHONEBOOK,
+    min_args=1,
+)
+@input_error
+@mutating
+def cmd_remove_address(args: List[str], storage: Storage) -> str:
+    rec = storage.contacts.get_record(args[0])
+    if rec.remove_address():
+        return f"Address removed for {rec.name.value}."
+    return "No address to remove."
+
+
+@REG.register(
+    "find", help="Usage: find query", section=SECTION_PHONEBOOK, min_args=1
 )
 @input_error
 def cmd_find(args: List[str], storage: Storage) -> str:
-    require_args(args, 1, "Usage: find query")
     res = storage.contacts.search(args[0])
     return "\n".join(str(r) for r in res) if res else "No results."
 
 
 @REG.register(
     "delete-contact",
-    help='Delete contact: delete-contact "Name"',
+    help='Usage: delete-contact "Name"',
     section=SECTION_PHONEBOOK,
+    min_args=1,
 )
 @input_error
 @mutating
 def cmd_delete_contact(args: List[str], storage: Storage) -> str:
-    require_args(args, 1, 'Usage: delete-contact "Name"')
     if storage.contacts.remove_record(args[0]):
         return f"Deleted contact '{args[0]}'."
     return "Contact not found."
@@ -378,13 +417,13 @@ def cmd_delete_contact(args: List[str], storage: Storage) -> str:
 
 @REG.register(
     "add-note",
-    help='Add note: add-note "Title" text...',
+    help='Usage: add-note "Title" text...',
     section=SECTION_NOTES,
+    min_args=2,
 )
 @input_error
 @mutating
 def cmd_add_note(args: List[str], storage: Storage) -> str:
-    require_args(args, 2, 'Usage: add-note "Title" текст...')
     text = " ".join(args[1:]).strip()
     if not text:
         raise ValueError("Note text cannot be empty.")
@@ -395,7 +434,7 @@ def cmd_add_note(args: List[str], storage: Storage) -> str:
 
 @REG.register(
     "list-notes",
-    help="List notes: list-notes [title|created]",
+    help="List all notes (sort by title or created)",
     section=SECTION_NOTES,
 )
 @input_error
@@ -414,12 +453,12 @@ def cmd_list_notes(args: List[str], storage: Storage) -> str:
 
 @REG.register(
     "find-note",
-    help="Search notes by text: find-note query",
+    help="Usage: find-note query",
     section=SECTION_NOTES,
+    min_args=1,
 )
 @input_error
 def cmd_find_note(args: List[str], storage: Storage) -> str:
-    require_args(args, 1, "Usage: find-note query")
     res = storage.notes.search_text(args[0])
     if not res:
         return "No results."
@@ -439,12 +478,12 @@ def cmd_find_note(args: List[str], storage: Storage) -> str:
 
 @REG.register(
     "find-tag",
-    help="Search notes by tag: find-tag tag",
+    help="Usage: find-tag tag",
     section=SECTION_NOTES,
+    min_args=1,
 )
 @input_error
 def cmd_find_tag(args: List[str], storage: Storage) -> str:
-    require_args(args, 1, "Usage: find-tag tag")
     res = storage.notes.search_tag(args[0])
     if not res:
         return "No results."
@@ -458,13 +497,13 @@ def cmd_find_tag(args: List[str], storage: Storage) -> str:
 
 @REG.register(
     "edit-note",
-    help='Edit note: edit-note "Title" new_text...',
+    help='Usage: edit-note "Title" new_text...',
     section=SECTION_NOTES,
+    min_args=2,
 )
 @input_error
 @mutating
 def cmd_edit_note(args: List[str], storage: Storage) -> str:
-    require_args(args, 2, 'Usage: edit-note "Title" новий_текст...')
     note = storage.notes.get_note(args[0])
     new_text = " ".join(args[1:]).strip()
     if not new_text:
@@ -475,13 +514,13 @@ def cmd_edit_note(args: List[str], storage: Storage) -> str:
 
 @REG.register(
     "tag-add",
-    help='Add tags: tag-add "Title" tag1 tag2 ...',
+    help='Usage: tag-add "Title" tag1 tag2 ...',
     section=SECTION_NOTES,
+    min_args=2,
 )
 @input_error
 @mutating
 def cmd_tag_add(args: List[str], storage: Storage) -> str:
-    require_args(args, 2, 'Usage: tag-add "Title" tag1 tag2 ...')
     note = storage.notes.get_note(args[0])
     note.add_tags(*args[1:])
     return f"Tags added to '{args[0]}': {', '.join(sorted(args[1:]))}"
@@ -489,13 +528,13 @@ def cmd_tag_add(args: List[str], storage: Storage) -> str:
 
 @REG.register(
     "tag-remove",
-    help='Remove tag: tag-remove "Title" tag',
+    help='Usage: tag-remove "Title" tag',
     section=SECTION_NOTES,
+    min_args=2,
 )
 @input_error
 @mutating
 def cmd_tag_remove(args: List[str], storage: Storage) -> str:
-    require_args(args, 2, 'Usage: tag-remove "Title" tag')
     note = storage.notes.get_note(args[0])
     if note.remove_tag(args[1]):
         return f"Tag removed from '{args[0]}'."
@@ -504,13 +543,13 @@ def cmd_tag_remove(args: List[str], storage: Storage) -> str:
 
 @REG.register(
     "delete-note",
-    help='Delete note: delete-note "Title"',
+    help='Usage: delete-note "Title"',
     section=SECTION_NOTES,
+    min_args=1,
 )
 @input_error
 @mutating
 def cmd_delete_note(args: List[str], storage: Storage) -> str:
-    require_args(args, 1, 'Usage: delete-note "Title"')
     if storage.notes.remove(args[0]):
         return f"Deleted note '{args[0]}'."
     return "Note not found."

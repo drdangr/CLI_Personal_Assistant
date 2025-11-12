@@ -173,6 +173,13 @@ class Record:
         """Встановити адресу."""
         self.address = address
 
+    def remove_address(self) -> bool:
+        """Видалити адресу."""
+        if self.address:
+            self.address = None
+            return True
+        return False
+
     # ----- День народження -----
     def set_birthday(self, bday: Birthday) -> None:
         """Встановити день народження."""

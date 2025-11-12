@@ -29,7 +29,7 @@ except KeyError:
     print("Not found")
 
 # 3. Декоратори для наскрізної функціональності
-@REG.register("cmd-name", help="Опис")
+@REG.register("cmd-name", help="Usage: cmd-name arg", min_args=1)
 @input_error      # Обробка помилок
 @mutating         # Автозбереження
 def cmd_example(args, storage):
@@ -49,14 +49,17 @@ result = REG.help_text()
 
 @REG.register(
     "new-cmd",
-    help='Новая команда: new-cmd "arg1" arg2',
+    help='Usage: new-cmd "arg1" arg2',
     section=SECTION_PHONEBOOK,  # оберіть відповідний розділ
+    min_args=2,  # мінімальна кількість аргументів (валідується автоматично)
 )
 @input_error
 @mutating  # Якщо команда змінює дані
 def cmd_new_cmd(args: List[str], storage: Storage) -> str:
-    require_args(args, 2, 'Usage: new-cmd "arg1" arg2')
+    # Валідація аргументів відбувається автоматично до виклику функції
     # Ваша логіка тут
+    arg1 = args[0]
+    arg2 = args[1]
     return "Результат"
 ```
 
@@ -364,10 +367,11 @@ python3 -c "from models import Phone; print(Phone('1234567890'))"
 # 1. У commands.py
 from models import SomeModel
 
-# 2. Реєструємо
-@REG.register("your-cmd", help="Опис")
+# 2. Реєструємо з мінімальною кількістю аргументів
+@REG.register("your-cmd", help="Usage: your-cmd arg", min_args=1)
 @input_error
 def cmd_your(args: List[str], storage: Storage) -> str:
+    # Валідація відбувається автоматично
     # Логіка
     return "Результат"
 

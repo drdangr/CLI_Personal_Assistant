@@ -162,8 +162,13 @@ def run_cli() -> None:
             print("Unknown command. Type 'help'.")
             continue
 
-        handler = REG.handler(resolved)
-        out = handler(args, storage)
+        try:
+            REG.validate_args(resolved, args)
+            handler = REG.handler(resolved)
+            out = handler(args, storage)
+        except IndexError as e:
+            out = str(e)
+        
         if out == "__EXIT__": break
         print(out)
 
