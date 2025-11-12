@@ -1,5 +1,5 @@
 """
-Интерфейс командной строки и парсер команд
+Інтерфейс командного рядка та парсер команд
 """
 
 from __future__ import annotations
@@ -51,24 +51,24 @@ class HintsCompleter(Completer):
 
 def parse_input(line: str) -> Tuple[str, List[str]]:
     """
-    Разбить команду на имя и аргументы, поддерживая кавычки.
+    Розбити команду на ім'я та аргументи, підтримуючи лапки.
 
-    Примеры:
+    Приклади:
         'add "John Doe" 1234567890'
         → cmd='add', args=['John Doe', '1234567890']
 
         'add-note "My Note" Some text here'
         → cmd='add-note', args=['My Note', 'Some', 'text', 'here']
 
-    shlex.split() умеет парсить кавычки как в shell:
-    - "текст с пробелами" → один аргумент
-    - текст без кавычек → разбивается по пробелам
+    shlex.split() вміє парсити лапки як у shell:
+    - "текст з пробілами" → один аргумент
+    - текст без лапок → розбивається за пробілами
     """
     try:
-        # shlex.split() обрабатывает кавычки как в Unix shell
+        # shlex.split() обробляє лапки як в Unix shell
         parts = shlex.split(line, posix=True)
     except ValueError:
-        # Если кавычки неправильные, просто разбиваем по пробелам
+        # Якщо лапки неправильні, просто розбиваємо за пробілами
         parts = line.split()
 
     if not parts:
@@ -79,11 +79,11 @@ def parse_input(line: str) -> Tuple[str, List[str]]:
 
 
 def get_all_commands() -> List[str]:
-    """Получить список всех доступных команд."""
+    """Отримати список всіх доступних команд."""
     return list(REG.all_commands())
 
 
-# fetch contact names from storage dynamically
+# отримання імен контактів зі сховища динамічно
 def get_contact_names(storage):
     """
     Return a list of contact display names from storage.contacts (AddressBook).
@@ -116,7 +116,7 @@ def get_contact_names(storage):
                 if n:
                     names.append(str(n))
 
-    # Deduplicate and return
+    # Видалення дублікатів та повернення
     seen, uniq = set(), []
     for n in names:
         if n and n not in seen:

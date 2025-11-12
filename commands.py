@@ -1,5 +1,5 @@
 """
-Регистрация и обработка всех команд приложения
+Реєстрація та обробка всіх команд застосунку
 """
 
 from __future__ import annotations
@@ -11,12 +11,12 @@ from models import Address, Birthday, Email, Name, Note, Phone, Record
 from storage import Storage, save_storage
 
 
-# Тип для обработчика команды: функция принимает аргументы и хранилище, возвращает строку
+# Тип для обробника команди: функція приймає аргументи та сховище, повертає рядок
 Handler = Callable[[List[str], Storage], str]
 
 
 class CommandRegistry:
-    """Реестр команд со строгим сопоставлением по имени."""
+    """Реєстр команд зі суворим зіставленням за іменем."""
 
     def __init__(self) -> None:
         self._handlers: Dict[str, Handler] = {}
@@ -26,7 +26,7 @@ class CommandRegistry:
     def register(
         self, name: str, *, help: str = "", section: str | None = None
     ) -> Callable[[Handler], Handler]:
-        """Зарегистрировать команду."""
+        """Зареєструвати команду."""
 
         def decorator(func: Handler) -> Handler:
             key = name.strip().lower()
@@ -43,25 +43,25 @@ class CommandRegistry:
         return decorator
 
     def resolve(self, name: str) -> Optional[str]:
-        """Вернуть точное имя команды, если оно зарегистрировано."""
+        """Повернути точне ім'я команди, якщо воно зареєстроване."""
         k = name.strip().lower()
         return k if k in self._handlers else None
 
     def handler(self, key: str) -> Handler:
-        """Получить обработчик по ключу."""
+        """Отримати обробник за ключем."""
         return self._handlers[key]
 
     def all_commands(self) -> List[str]:
-        """Получить список всех команд."""
+        """Отримати список всіх команд."""
         return sorted(self._handlers.keys())
 
     def get_help(self, name: str) -> str:
-        """Получить справку команды по её имени."""
+        """Отримати довідку команди за її іменем."""
         key = name.strip().lower()
         return self._help.get(key, "")
 
     def help_text(self) -> str:
-        """Вернуть компактный текст справки."""
+        """Повернути компактний текст довідки."""
         groups: Dict[str, List[str]] = {section: [] for section in SECTION_ORDER}
         for cmd in self.all_commands():
             section = self._sections.get(cmd, DEFAULT_SECTION)
@@ -96,29 +96,29 @@ REG = CommandRegistry()
 def require_args(
     args: List[str], count: int, usage: str = "Not enough arguments"
 ) -> None:
-    """Проверить, что есть нужное количество аргументов."""
+    """Перевірити, що є потрібна кількість аргументів."""
     if len(args) < count:
         raise IndexError(usage)
 
 
 def input_error(func: Handler) -> Handler:
     """
-    Декоратор для обработки ошибок и вывода дружных сообщений.
+    Декоратор для обробки помилок та виводу дружніх повідомлень.
 
-    Перехватывает исключения и возвращает понятные сообщения вместо краша:
-    - KeyError → "Not found: ..." (контакт/заметка не найдены)
-    - ValueError → "Value error: ..." (неправильное значение, например, поле)
-    - IndexError → "Not enough arguments" (мало аргументов)
-    - Exception → "Error: ..." (прочие ошибки)
+    Перехоплює винятки та повертає зрозумілі повідомлення замість краху:
+    - KeyError → "Not found: ..." (контакт/нотатка не знайдені)
+    - ValueError → "Value error: ..." (неправильне значення, наприклад, поле)
+    - IndexError → "Not enough arguments" (мало аргументів)
+    - Exception → "Error: ..." (інші помилки)
 
-    Пример:
+    Приклад:
         @input_error
         def cmd_example(args, storage):
             if not args:
                 raise IndexError("Usage: cmd arg1 arg2")
             if args[0] == "invalid":
                 raise ValueError("Invalid argument")
-            rec = storage.contacts.get_record(args[0])  # может выбросить KeyError
+            rec = storage.contacts.get_record(args[0])  # може викинути KeyError
             return "Success"
     """
 
@@ -140,25 +140,25 @@ def input_error(func: Handler) -> Handler:
 
 def mutating(func: Handler) -> Handler:
     """
-    Декоратор для команд, которые меняют данные (автоматическое сохранение).
+    Декоратор для команд, які змінюють дані (автоматичне збереження).
 
-    Автоматически вызывает save_storage() после успешного выполнения команды.
-    НЕ сохраняет если:
-    - функция вернула ошибку (начинается с "Error")
-    - функция вернула сигнал выхода ("__EXIT__")
+    Автоматично викликає save_storage() після успішного виконання команди.
+    НЕ зберігає якщо:
+    - функція повернула помилку (починається з "Error")
+    - функція повернула сигнал виходу ("__EXIT__")
 
-    Пример:
+    Приклад:
         @mutating
         def cmd_add_contact(args, storage):
             rec = Record(Name(args[0]))
             storage.contacts.add_record(rec)
             return "Contact added"
-            # Автоматически вызовет save_storage(storage)
+            # Автоматично викличе save_storage(storage)
 
         @mutating
         def cmd_invalid(args, storage):
             raise ValueError("Bad input")
-            # Не сохранит, потому что @input_error вернёт "Value error: ..."
+            # Не збереже, тому що @input_error поверне "Value error: ..."
     """
 
     @functools.wraps(func)
@@ -172,7 +172,7 @@ def mutating(func: Handler) -> Handler:
 
 
 # ==============================
-# Контакты
+# Контакти
 # ==============================
 
 
@@ -339,7 +339,7 @@ def cmd_remove_email(args: List[str], storage: Storage) -> str:
 def cmd_set_address(args: List[str], storage: Storage) -> str:
     require_args(args, 2, 'Usage: set-address "Name" "Kyiv, ..."')
     rec = storage.contacts.get_record(args[0])
-    # приєдную всі інші аргументи адреси, e.g. "Kyiv, Khreshchatyk 1"
+    # приєдную всі інші аргументи адреси, наприклад "Kyiv, Khreshchatyk 1"
     address_text = " ".join(args[1:]).strip()
     if not address_text:
         raise ValueError('Address cannot be empty.')
@@ -372,7 +372,7 @@ def cmd_delete_contact(args: List[str], storage: Storage) -> str:
 
 
 # ==============================
-# Заметки
+# Нотатки
 # ==============================
 
 

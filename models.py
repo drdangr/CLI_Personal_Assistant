@@ -1,5 +1,5 @@
 """
-Модель данных для контактов и нотаток
+Модель даних для контактів та нотаток
 """
 
 from __future__ import annotations
@@ -20,16 +20,16 @@ from config import (
 
 
 # ==============================
-# Поля для контактов (валідація)
+# Поля для контактів (валідація)
 # ==============================
 
 
 class Field:
-    """Базовое поле с рядковым значением."""
+    """Базове поле з рядковим значенням."""
 
     def __init__(self, value: str) -> None:
         self._value = None
-        self.value = value  # вызывает setter
+        self.value = value  # викликає setter
 
     @property
     def value(self) -> str:
@@ -48,13 +48,13 @@ class Field:
 
 
 class Name(Field):
-    """Имя контакта."""
+    """Ім'я контакта."""
 
     pass
 
 
 class Phone(Field):
-    """Телефон: ровно 10 цифр."""
+    """Телефон: рівно 10 цифр."""
 
     _re = re.compile(PHONE_REGEX)
 
@@ -67,7 +67,7 @@ class Phone(Field):
 
 
 class Email(Field):
-    """Email с базовой валидацией."""
+    """Email з базовою валідацією."""
 
     _re = re.compile(EMAIL_REGEX)
 
@@ -80,13 +80,13 @@ class Email(Field):
 
 
 class Address(Field):
-    """Адрес контакта."""
+    """Адреса контакта."""
 
     pass
 
 
 class Birthday(Field):
-    """Дата рождения в формате DD.MM.YYYY."""
+    """Дата народження у форматі DD.MM.YYYY."""
 
     @Field.value.setter  # type: ignore[attr-defined]
     def value(self, new_value: str) -> None:
@@ -98,20 +98,20 @@ class Birthday(Field):
         self._value = dt.strftime(BIRTHDAY_FORMAT)
 
     def as_date(self) -> date:
-        """Преобразовать в объект date."""
+        """Перетворити на об'єкт date."""
         return datetime.strptime(self.value, BIRTHDAY_FORMAT).date()
 
 
 # ==============================
-# Контакт и Книга контактов
+# Контакт та Книга контактів
 # ==============================
 
 
 class Record:
     """
-    Один контакт с полями и методами управления.
+    Один контакт з полями та методами управління.
 
-    Пример:
+    Приклад:
         rec = Record(Name("John Doe"))
         rec.add_phone(Phone("1234567890"))
         rec.add_email(Email("john@example.com"))
@@ -122,7 +122,7 @@ class Record:
         # Output: Name: John Doe | Phones: 1234567890 | Emails: john@example.com |
         #         Address: Kyiv, Ukraine | Birthday: 15.03.1990
 
-        print(rec.days_to_birthday())  # количество дней до ДР
+        print(rec.days_to_birthday())  # кількість днів до ДН
     """
 
     def __init__(self, name: Name) -> None:
@@ -132,14 +132,14 @@ class Record:
         self.address: Optional[Address] = None
         self.birthday: Optional[Birthday] = None
 
-    # ----- Телефоны -----
+    # ----- Телефони -----
     def add_phone(self, phone: Phone) -> None:
-        """Добавить номер телефона."""
+        """Додати номер телефону."""
         if phone.value not in [p.value for p in self.phones]:
             self.phones.append(phone)
 
     def remove_phone(self, phone_value: str) -> bool:
-        """Удалить номер телефона по значению."""
+        """Видалити номер телефону за значенням."""
         for i, p in enumerate(self.phones):
             if p.value == phone_value:
                 self.phones.pop(i)
@@ -147,35 +147,35 @@ class Record:
         return False
 
     def edit_phone(self, old_value: str, new_value: str) -> None:
-        """Изменить номер телефона."""
+        """Змінити номер телефону."""
         for p in self.phones:
             if p.value == old_value:
-                p.value = new_value  # вызывает валидацию
+                p.value = new_value  # викликає валідацію
                 return
         raise KeyError(f"Phone '{old_value}' not found for contact '{self.name}'.")
 
     # ----- Email -----
     def add_email(self, email: Email) -> None:
-        """Добавить email."""
+        """Додати email."""
         if email.value not in [e.value for e in self.emails]:
             self.emails.append(email)
 
     def remove_email(self, email_value: str) -> bool:
-        """Удалить email по значению."""
+        """Видалити email за значенням."""
         for i, e in enumerate(self.emails):
             if e.value == email_value:
                 self.emails.pop(i)
                 return True
         return False
 
-    # ----- Адрес -----
+    # ----- Адреса -----
     def set_address(self, address: Address) -> None:
-        """Установить адрес."""
+        """Встановити адресу."""
         self.address = address
 
-    # ----- День рождения -----
+    # ----- День народження -----
     def set_birthday(self, bday: Birthday) -> None:
-        """Установить день рождения."""
+        """Встановити день народження."""
         self.birthday = bday
 
     def days_to_birthday(self, today: Optional[date] = None) -> Optional[int]:
@@ -247,29 +247,29 @@ class Record:
 
 
 class AddressBook(UserDict):
-    """Книга контактов (имя → Record)."""
+    """Книга контактів (ім'я → Record)."""
 
     def add_record(self, record: Record) -> None:
-        """Добавить контакт."""
+        """Додати контакт."""
         key = record.name.value.lower()
         if key in self.data:
             raise KeyError(f"Contact '{record.name.value}' already exists.")
         self.data[key] = record
 
     def get_record(self, name: str) -> Record:
-        """Получить контакт по имени."""
+        """Отримати контакт за іменем."""
         key = name.strip().lower()
         if key not in self.data:
             raise KeyError(name)
         return self.data[key]
 
     def remove_record(self, name: str) -> bool:
-        """Удалить контакт по имени."""
+        """Видалити контакт за іменем."""
         key = name.strip().lower()
         return self.data.pop(key, None) is not None
 
     def search(self, query: str) -> List[Record]:
-        """Поиск контактов по различным полям."""
+        """Пошук контактів за різними полями."""
         q = query.lower().strip()
         results: List[Record] = []
         for r in self.data.values():
@@ -285,15 +285,15 @@ class AddressBook(UserDict):
         return results
 
     def all(self) -> List[Record]:
-        """Получить все контакты, отсортированные по имени."""
+        """Отримати всі контакти, відсортовані за іменем."""
         return sorted(self.data.values(), key=lambda r: r.name.value.lower())
 
     def upcoming_birthdays(
         self, days: int, today: Optional[date] = None
     ) -> Dict[int, List[Tuple[str, str, str]]]:
         """
-        Контакты с днями рождения в течение next N дней.
-        Возвращает: дни_до → список (имя, dd.mm.yyyy, день_недели)
+        Контакти з днями народження протягом наступних N днів.
+        Повертає: дні_до → список (ім'я, dd.mm.yyyy, день_тижня)
         """
         today = today or date.today()
         bucket: Dict[int, List[Tuple[str, str, str]]] = {}
@@ -307,7 +307,7 @@ class AddressBook(UserDict):
             wk = next_bd.strftime("%A")
             bucket.setdefault(delta, []).append((r.name.value, r.birthday.value, wk))
 
-        # Сортируем каждый список по имени
+        # Сортуємо кожен список за іменем
         for d in bucket:
             bucket[d].sort(key=lambda t: t[0].lower())
 
@@ -321,7 +321,7 @@ class AddressBook(UserDict):
 
 @dataclass
 class Note:
-    """Заметка с текстом и тегами."""
+    """Нотатка з текстом та тегами."""
 
     title: str
     text: str
@@ -329,11 +329,11 @@ class Note:
     created: datetime = field(default_factory=datetime.now)
 
     def add_tags(self, *tags: str) -> None:
-        """Добавить теги к заметке."""
+        """Додати теги до нотатки."""
         self.tags.update(t.strip().lower() for t in tags if t.strip())
 
     def remove_tag(self, tag: str) -> bool:
-        """Удалить тег из заметки."""
+        """Видалити тег з нотатки."""
         t = tag.strip().lower()
         if t in self.tags:
             self.tags.remove(t)
@@ -342,41 +342,41 @@ class Note:
 
 
 class NoteBook(UserDict):
-    """Записная книжка (название → Note)."""
+    """Записна книжка (назва → Note)."""
 
     def add(self, note: Note) -> None:
-        """Добавить заметку."""
+        """Додати нотатку."""
         key = note.title.strip().lower()
         if key in self.data:
             raise KeyError(f"Note '{note.title}' already exists.")
         self.data[key] = note
 
     def get_note(self, title: str) -> Note:
-        """Получить заметку по названию."""
+        """Отримати нотатку за назвою."""
         key = title.strip().lower()
         if key not in self.data:
             raise KeyError(title)
         return self.data[key]
 
     def remove(self, title: str) -> bool:
-        """Удалить заметку по названию."""
+        """Видалити нотатку за назвою."""
         key = title.strip().lower()
         return self.data.pop(key, None) is not None
 
     def search_text(self, query: str) -> List[Note]:
-        """Поиск заметок по тексту и названию."""
+        """Пошук нотаток за текстом та назвою."""
         q = query.lower().strip()
         return [
             n for n in self.data.values() if q in n.text.lower() or q in n.title.lower()
         ]
 
     def search_tag(self, tag: str) -> List[Note]:
-        """Поиск заметок по тегу."""
+        """Пошук нотаток за тегом."""
         t = tag.lower().strip()
         return [n for n in self.data.values() if t in n.tags]
 
     def all(self, sort_by: str = "title") -> List[Note]:
-        """Получить все заметки с сортировкой."""
+        """Отримати всі нотатки з сортуванням."""
         if sort_by == "created":
             return sorted(self.data.values(), key=lambda n: n.created)
         return sorted(self.data.values(), key=lambda n: n.title.lower())
