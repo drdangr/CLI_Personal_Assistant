@@ -1,71 +1,71 @@
 
 
-## Как использовать
+## Як використовувати
 
-### Запуск программы
+### Запуск програми
 ```bash
 python3 main.py
 ```
 
-### Добавить новую команду
-1. В `commands.py` создайте функцию-обработчик.
-2. Зарегистрируйте её через `@REG.register(..., section=..., min_args=...)`.
-3. Укажите `min_args` для автоматической валідації кількості аргументів.
-4. Добавьте краткое описание в документацию при необходимости.
+### Додати нову команду
+1. В `commands.py` створіть функцію-обробник.
+2. Зареєструйте її через `@REG.register(..., section=..., min_args=...)`.
+3. Вкажіть `min_args` для автоматичної валідації кількості аргументів.
+4. Додайте короткий опис у документацію за потреби.
 
-### Заменить хранилище
-1. Отредактируйте storage.py
-2. Поменяйте save/load функции
-3. Остальной код не меняется
+### Замінити сховище
+1. Відредагуйте storage.py
+2. Змініть save/load функції
+3. Решта коду не змінюється
 
 
-## Примеры использования
+## Приклади використання
 
-### Тестирование моделей
+### Тестування моделей
 ```python
 from models import Phone, Email
 
-# Валиднэ телефон
+# Валідний телефон
 p = Phone("1234567890")  # OK
 
-# Невалидный телефон
+# Невалідний телефон
 try:
     p = Phone("123")  # Error
 except ValueError as e:
     print(e)  # "Phone must contain exactly 10 digits."
 ```
 
-### Работа с контактами
+### Робота з контактами
 ```python
 from models import Record, Name, Phone
 from storage import load_storage, save_storage
 
 storage = load_storage()
 
-# Создать контакт
+# Створити контакт
 rec = Record(Name("Alice"))
 rec.add_phone(Phone("9876543210"))
 storage.contacts.add_record(rec)
 
-# Сохранить
+# Зберегти
 save_storage(storage)
 
-# Найти
+# Знайти
 rec = storage.contacts.get_record("Alice")
 ```
 
-### Работа с командами
+### Робота з командами
 ```python
 from commands import REG, cmd_help
 from storage import Storage
 
 storage = Storage()
 
-# Список всех команд
+# Список всіх команд
 for cmd in REG.all_commands():
     print(cmd)
 
-# Выполнить команду
+# Виконати команду
 result = cmd_help([], storage)
 print(result)
 ```
