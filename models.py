@@ -9,6 +9,7 @@ from dataclasses import dataclass, field
 from datetime import date, datetime
 from typing import Dict, List, Optional, Tuple
 import re
+from calendar import isleap  # === ДОДАНО ===
 
 from config import (
     BIRTHDAY_FORMAT,
@@ -179,54 +180,58 @@ class Record:
 
     def days_to_birthday(self, today: Optional[date] = None) -> Optional[int]:
         """
-        Количество дней до ближайшего дня рождения.
+        Кількість днів до найближчого дня народження.
 
-        Алгоритм:
-        1. Если дня рождения нет → вернуть None
-        2. Построить дату дня рождения в этом году
-        3. Если эта дата уже прошла → взять следующий год
-        4. Вернуть разницу в днях
-
-        Примеры:
-        - Сегодня 10.11, день рождения 15.11 → 5 дней
-        - Сегодня 20.11, день рождения 15.11 → 356 дней (до 15.11 следующего года)
+        Використовує get_next_birthday(), яка коректно обробляє
+        випадок 29 лютого у невисокосні роки (зсув на 1 березня).
         """
         if not self.birthday:
             return None
         today = today or date.today()
-        born = self.birthday.as_date()
-        # Построить дату дня рождения в этом году
-        this_year = date(today.year, born.month, born.day)
-        # Если этот год уже прошёл, берём следующий год
-        next_bd = (
-            this_year
-            if this_year >= today
-            else date(today.year + 1, born.month, born.day)
-        )
+        next_bd = self.get_next_birthday(today)
+        if not next_bd:
+            return None
         return (next_bd - today).days
+
 
     def get_next_birthday(self, today: Optional[date] = None) -> Optional[date]:
         """
-        Получить дату следующего дня рождения.
+        Отримати дату наступного дня народження.
 
-        Аналогично days_to_birthday(), но возвращает саму дату вместо количества дней.
+        Аналогічно до days_to_birthday(), але повертає саму дату замість кількості днів.
 
-        Примеры:
-        - Сегодня 10.11, день рождения 15.11 → date(2025, 11, 15)
-        - Сегодня 20.11, день рождения 15.11 → date(2026, 11, 15)
+        Приклади:
+        - Сьогодні 10.11, день народження 15.11 → date(2025, 11, 15)
+        - Сьогодні 20.11, день народження 15.11 → date(2026, 11, 15)
         """
         if not self.birthday:
             return None
+
         today = today or date.today()
         born = self.birthday.as_date()
-        # Построить дату дня рождения в этом году
-        this_year = date(today.year, born.month, born.day)
-        # Если этот год уже прошёл, берём следующий год
-        return (
-            this_year
-            if this_year >= today
-            else date(today.year + 1, born.month, born.day)
-        )
+
+        # === Обробка високосного року для 29 лютого ===
+        year = today.year
+        month = born.month
+        day = born.day
+        if month == 2 and day == 29 and not isleap(year):
+            day = 1
+            month = 3
+
+        next_bd = date(year, month, day)
+
+        if next_bd < today:
+            year += 1
+            month = born.month
+            day = born.day
+            if month == 2 and day == 29 and not isleap(year):
+                day = 1
+                month = 3
+            next_bd = date(year, month, day)
+
+        # === Кінець додавання ===
+        return next_bd
+
 
     def __str__(self) -> str:
         parts = [f"Name: {self.name}"]
@@ -375,3 +380,18 @@ class NoteBook(UserDict):
         if sort_by == "created":
             return sorted(self.data.values(), key=lambda n: n.created)
         return sorted(self.data.values(), key=lambda n: n.title.lower())
+
+if __name__ == "__main__":
+    from datetime import date
+
+    # Створюємо контакт із днем народження 29 лютого 2000 року
+
+    record = Record(Name("Тестовий Контакт"))
+    record.set_birthday(Birthday("29.02.2000"))
+
+    # Тестуємо різні дати
+    print("Сьогодні:", date.today())
+    print("Наступний день народження:", record.get_next_birthday(date(2025, 11, 12)))
+    print("Днів до ДН:", record.days_to_birthday(date(2025, 11, 12)))
+ 
+ 
