@@ -12,7 +12,7 @@ from storage import Storage, save_storage
 # додано імпорт кольорових помічників
 from color_helper import (
     colored_error, colored_title, colored_tag, BADGE_ERROR, BADGE_ASSISTANT,
-    ICON_PHONE, ICON_NOTES, ICON_BYE, colored_info, colored_warning
+    ICON_PHONE, ICON_NOTES, ICON_BYE, ICON_BIRTHDAY, colored_info, colored_warning
 )
 
 from datetime import date
@@ -357,11 +357,11 @@ def cmd_birthdays(args: List[str], storage: Storage) -> str:  # noqa: ARG001
             next_bd = record.get_next_birthday(today)
             date_str = next_bd.strftime("%d.%m.%Y")
             if delta == 0:
-                lines.append(f"🎉 Congrats {name} — today! ({date_str}, {wk})")
+                lines.append(f"{ICON_BIRTHDAY} Congrats {name} — today! ({date_str}, {wk})")
             elif delta == 1:
-                lines.append(f"🎉 Congrats {name} — tomorrow! ({date_str}, {wk})")
+                lines.append(f"{ICON_BIRTHDAY} Congrats {name} — tomorrow! ({date_str}, {wk})")
             else:
-                lines.append(f"🎉 Congrats {name} — in {delta} days ({date_str}, {wk})")
+                lines.append(f"{ICON_BIRTHDAY} Congrats {name} — in {delta} days ({date_str}, {wk})")
 
     return "\n".join(lines)
 
