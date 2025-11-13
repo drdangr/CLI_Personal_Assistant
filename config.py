@@ -4,7 +4,7 @@
 
 # Застосунок
 APP_NAME = "personal_assistant_cli"
-APP_VERSION = "1.0.0"
+APP_VERSION = "1.1.0"
 
 # Валідація контактів
 PHONE_DIGITS = 10
