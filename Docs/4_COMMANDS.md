@@ -5,13 +5,13 @@
 ### Реєстр команд
 
 - Клас `CommandRegistry` тримає чотири структури: `handlers`, `help`, `sections` та `min_args`, де ключ — нормалізоване ім'я команди. Метод `register()` повертає декоратор, який закріплює функцію, її опис, секцію та мінімальну кількість аргументів, забороняючи дублі (*RuntimeError* при повторній реєстрації). Метод `validate_args()` перевіряє кількість аргументів до виклику handler. Завдяки методу `resolve()` CLI може перевірити, чи існує команда, а `help_text()` формує загальний список для `help`.  
-```18:97:commands.py
+```24:121:commands.py
 class CommandRegistry:
     ...
 ```
 
 - Глобальний екземпляр `REG` використовується всім модулем. Це єдина точка реєстрації, тому список доступних команд централізований.  
-```107:107:commands.py
+```130:130:commands.py
 REG = CommandRegistry()
 ```
 
@@ -19,7 +19,7 @@ REG = CommandRegistry()
 
 `CommandRegistry` — невеликий сервіс-клас, який зберігає всі команди CLI, їх короткі описи та належність до розділів. Він забезпечує реєстрацію, пошук та видачу підказок, а також допомагає іншим частинам програми дізнатися, які команди доступні.
 
-```18:25:commands.py
+```24:31:commands.py
 class CommandRegistry:
     """Реєстр команд зі суворим зіставленням за іменем."""
 
@@ -38,7 +38,7 @@ class CommandRegistry:
 
 #### register()
 
-```27:45:commands.py
+```33:51:commands.py
     def register(
         self, name: str, *, help: str = "", section: str | None = None, min_args: int = 0
     ) -> Callable[[Handler], Handler]:
@@ -62,14 +62,14 @@ class CommandRegistry:
 
 - Метод повертає декоратор, яким обгортають функції-обробники.
 - Приводить ім'я до нижнього регістру та обрізає пробіли — реєстрація/пошук регістронезалежні.
-- Забороняє дублі імен: при повторному `register("add")` одразу викидає `RuntimeError`.
+- Забороняє дублі імен: при повторному `register("add-contact")` одразу викидає `RuntimeError`.
 - Зберігає обробник, опис, розділ та мінімальну кількість аргументів у словники, потім повертає саму функцію (щоб декоратор не змінював поведінку).
 - Параметр `section` необов'язковий; якщо він не вказаний або не потрапляє в допустимий список (`SECTION_ORDER`), команда опиниться в розділі «Інше».
 - Параметр `min_args` (за замовчуванням 0) визначає мінімальну кількість аргументів, які потрібні команді. Валідація відбувається автоматично в `cli.py` перед викликом handler.
 
 #### resolve()
 
-```47:51:commands.py
+```53:56:commands.py
     def resolve(self, name: str) -> Optional[str]:
         """Повернути точне ім'я команди, якщо воно зареєстроване."""
         k = name.strip().lower()
@@ -82,7 +82,7 @@ class CommandRegistry:
 
 #### validate_args()
 
-```56:67:commands.py
+```62:72:commands.py
     def validate_args(self, cmd_name: str, args: List[str]) -> None:
         """Перевірити кількість аргументів для команди."""
         key = cmd_name.strip().lower()
@@ -102,7 +102,7 @@ class CommandRegistry:
 
 #### handler()
 
-```52:55:commands.py
+```58:60:commands.py
     def handler(self, key: str) -> Handler:
         """Отримати обробник за ключем."""
         return self._handlers[key]
@@ -113,7 +113,7 @@ class CommandRegistry:
 
 #### all_commands()
 
-```68:71:commands.py
+```74:76:commands.py
     def all_commands(self) -> List[str]:
         """Отримати список всіх команд."""
         return sorted(self._handlers.keys())
@@ -124,7 +124,7 @@ class CommandRegistry:
 
 #### get_help()
 
-```72:76:commands.py
+```78:81:commands.py
     def get_help(self, name: str) -> str:
         """Отримати довідку команди за її іменем."""
         key = name.strip().lower()
@@ -135,7 +135,7 @@ class CommandRegistry:
 
 #### help_text()
 
-```77:98:commands.py
+```83:120:commands.py
     def help_text(self) -> str:
         """Повернути компактний текст довідки."""
         groups: Dict[str, List[str]] = {section: [] for section in SECTION_ORDER}
@@ -143,16 +143,33 @@ class CommandRegistry:
             section = self._sections.get(cmd, DEFAULT_SECTION)
             groups.setdefault(section, []).append(cmd)
 
-        lines = ["Доступные команды:"]
+        lines = ["Доступні команди:"]
         for section in SECTION_ORDER:
             cmds = groups.get(section, [])
             if not cmds:
                 continue
             lines.append("")
-            lines.append(f"{section}:")
+            # ЗМІНЕНО: Додано іконки до назв секцій
+            section_display = section
+            if section == SECTION_PHONEBOOK:
+                section_display = f"{ICON_PHONE} {section}"
+            elif section == SECTION_NOTES:
+                section_display = f"{ICON_NOTES} {section}"
+            elif section == SECTION_SYSTEM:
+                section_display = f"{ICON_BYE} {section}"
+            lines.append(f"{section_display}:")
             for cmd in cmds:
                 desc = self._help.get(cmd, "")
-                lines.append(f"  - {cmd}: {desc}")
+                # ЗМІНЕНО: Додано кольори до команд залежно від секції
+                if section == SECTION_PHONEBOOK:
+                    colored_cmd = colored_info(cmd)
+                elif section == SECTION_NOTES:
+                    colored_cmd = colored_warning(cmd)
+                elif section == SECTION_SYSTEM:
+                    colored_cmd = colored_title(cmd)
+                else:
+                    colored_cmd = cmd
+                lines.append(f"  - {colored_cmd}: {desc}")
 
         lines.append("")
         lines.append("Для деталей щодо конкретної команди використовуйте: help <command>")
@@ -185,13 +202,13 @@ class CommandRegistry:
   * `IndexError` → текст usage (викидається `validate_args()`) або «Not enough arguments»,  
   * інші → «Error: ...».  
   Завдяки цьому бізнес-логіка може сміливо викидати винятки, не турбуючись про форматування відповіді.  
-```110:144:commands.py
+```133:176:commands.py
 def input_error(func):
     ...
 ```
 
 - `mutating` — обгортає команди, які змінюють стан. Після успішного виконання викликає `save_storage(storage)`; якщо відповідь починається з `Error`, або дорівнює `__EXIT__`, збереження пропускається, запобігаючи хибним записам.  
-```147:177:commands.py
+```179:209:commands.py
 def mutating(func):
     ...
 ```
@@ -201,8 +218,8 @@ def mutating(func):
 ### Команди для контактів
 
 - `cmd_add` додає контакт або телефон. Зареєстрована з `min_args=1` (потребує хоча б ім'я). Перевіряє, чи існує запис; якщо ні — створює `Record(Name(...))`, додає перший телефон (якщо переданий) та зберігає. Якщо контакт вже є, але телефон не вказаний, повідомляє про необхідність номера, а при повторюваному телефоні не дублює його.  
-```185:216:commands.py
-@REG.register("add", help='Usage: add "Name" [0123456789]', section=SECTION_PHONEBOOK, min_args=1)
+```217:225:commands.py
+@REG.register("add-contact", help='Usage: add-contact "Name" [0123456789]', section=SECTION_PHONEBOOK, min_args=1)
 ...
 ```
 - Усі обробники в цьому розділі реєструються з `section=SECTION_PHONEBOOK` та відповідним `min_args`, тому в довідці підсумковий список потрапляє в блок «Phonebook», а валідація аргументів відбувається автоматично.
@@ -225,7 +242,7 @@ def mutating(func):
 - `cmd_edit_note` замінює текст нотатки (`min_args=2`); порожній текст блокується `ValueError`.  
 - `cmd_tag_add`, `cmd_tag_remove`, `cmd_delete_note` дозволяють управляти тегами та видаляти нотатку, повідомляючи про успіх або відсутність потрібного тега/нотатки (відповідно `min_args=2`, `min_args=2`, `min_args=1`).
 
-```418:556:commands.py
+```478:486:commands.py
 @REG.register("add-note", help='Usage: add-note "Title" text...', section=SECTION_NOTES, min_args=2)
 ...
 ```
@@ -238,8 +255,8 @@ def mutating(func):
 - `cmd_exit` реєструється як `close` та `exit`, повертає спеціальний маркер `__EXIT__`, який CLI сприймає як сигнал завершення без збереження.  
 - `cmd_version` підвантажує константи `APP_NAME`, `APP_VERSION` та шлях `STORAGE_FILE`, формуючи рядок виду `personal_assistant_cli v1.0.0 | data: ...`.  
 
-```563:596:commands.py
-@REG.register("hello", ...)
+```639:642:commands.py
+@REG.register("hello", help="Greeting from bot", section=SECTION_SYSTEM)
 ...
 ```
 - Системні команди використовують `section=SECTION_SYSTEM`. Якщо якась нова команда не вкаже розділ або задасть незнайоме значення, реєстр відправить її в «Інше» (це `DEFAULT_SECTION`).
